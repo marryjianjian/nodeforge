@@ -1,0 +1,5 @@
+bin/
+out/
+tools/
+.DS_Store
+cache.db

@@ -1,0 +1,5 @@
+# Supported share links: vmess / vless / trojan / ss
+vmess://eyJ2IjoiMiIsInBzIjoiaGstdm1lc3Mtd3MiLCJhZGQiOiJoazEuZXhhbXBsZS5jb20iLCJwb3J0IjoiNDQzIiwiaWQiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJhaWQiOiIwIiwic2N5IjoiYXV0byIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJob3N0IjoiY2RuLmV4YW1wbGUuY29tIiwicGF0aCI6Ii92bWVzcyIsInRscyI6InRscyIsInNuaSI6ImhrMS5leGFtcGxlLmNvbSIsImFscG4iOiJoMixodHRwLzEuMSJ9
+vless://22222222-2222-2222-2222-222222222222@jp1.example.com:8443?encryption=none&security=tls&sni=jp1.example.com&type=grpc&serviceName=grpc#jp-vless-grpc
+trojan://trojan-password@sg1.example.com:443?security=tls&sni=sg1.example.com&type=tcp#sg-trojan-tcp
+ss://YWVzLTI1Ni1nY206c3MtcGFzc3dvcmQ@us1.example.com:8388#us-ss

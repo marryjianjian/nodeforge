@@ -1,0 +1,30 @@
+{
+  "group": "DemoJSON",
+  "nodes": [
+    {
+      "name": "json-vmess",
+      "type": "vmess",
+      "server": "json1.example.com",
+      "port": 443,
+      "uuid": "33333333-3333-3333-3333-333333333333",
+      "cipher": "auto",
+      "tls": true,
+      "sni": "json1.example.com",
+      "network": "ws",
+      "host": "cdn-json.example.com",
+      "path": "/ws",
+      "udp": true,
+      "group": "JSON"
+    },
+    {
+      "name": "json-ss",
+      "type": "ss",
+      "server": "json-ss.example.com",
+      "port": 8388,
+      "cipher": "aes-256-gcm",
+      "password": "json-ss-password",
+      "udp": true,
+      "group": "JSON"
+    }
+  ]
+}
