@@ -1,49 +1,51 @@
 # nodeforge
 
-`nodeforge` 是一个本地 Go CLI 工具，用来把少量自建节点的原始配置或分享链接，转换成统一内部结构后，再导出为多种常见客户端可直接使用的配置文件。
+[简体中文](./README.zh-CN.md)
 
-当前版本聚焦于“小而稳、方便扩展”的本地转换流程，不提供 Web 面板、远程订阅托管、测速、流量统计或后台服务。
+`nodeforge` is a local Go CLI that converts a small set of self-hosted node definitions or share links into a unified internal model, then renders them into client-ready configuration files or subscription content.
 
-## 功能范围
+The current scope is intentionally narrow: local conversion and export only. It does not provide a web panel, hosted subscription service, speed tests, traffic accounting, or any background service.
 
-- 输入支持：
-  - YAML 节点文件
-  - JSON 节点文件
-  - 目录输入，自动聚合目录中的多个 `.yaml` / `.yml` / `.json` / `.txt` 文件
-  - `links.txt` 分享链接列表
-  - V2Ray 服务端配置文件
-- 当前已支持协议：
+## Features
+
+- Input sources:
+  - YAML node files
+  - JSON node files
+  - Directory input, aggregating multiple `.yaml`, `.yml`, `.json`, and `.txt` files
+  - `links.txt` files with one share link per line
+  - V2Ray server-side configuration files
+- Supported protocols:
   - `vmess`
   - `vless`
   - `trojan`
   - `ss` / `shadowsocks`
-- 输出支持：
-  - Clash / Mihomo 风格 YAML
-  - sing-box 风格 JSON
-  - 标准化分享链接列表 `links.txt`
-  - `v2rayN` 可用的 Base64 订阅内容 `subscription.txt`
-- 行为特性：
-  - 统一中间模型
-  - 基本字段校验
-  - 非法节点跳过
-  - 输出成功/失败统计
+- Output formats:
+  - Clash / Mihomo YAML
+  - sing-box JSON
+  - normalized share-link list in `links.txt`
+  - Base64 subscription output for `v2rayN` in `subscription.txt`
+- Behavior:
+  - unified intermediate model
+  - field validation
+  - invalid-node skipping with warnings
+  - success/failure summary reporting
 
-## 目录结构
+## Project Layout
 
 ```text
-cmd/convert/            CLI 入口
-internal/model/         统一中间模型
-internal/parser/        输入解析器
-internal/renderer/      输出渲染器
-internal/sharelink/     分享链接编解码
-internal/validate/      字段校验
-examples/               示例输入
-test/                   基础 CLI 集成测试
+cmd/convert/            CLI entrypoint
+internal/model/         Unified intermediate model
+internal/parser/        Input parsers
+internal/renderer/      Output renderers
+internal/sharelink/     Share-link encode/decode helpers
+internal/validate/      Field validation
+examples/               Example inputs
+test/                   Basic CLI integration tests
 ```
 
-## 输入格式
+## Input Model
 
-YAML 与 JSON 推荐使用如下结构：
+For YAML and JSON, the recommended format is:
 
 ```yaml
 group: Demo
@@ -64,7 +66,7 @@ nodes:
     group: HK
 ```
 
-支持的统一字段包括：
+Supported normalized fields include:
 
 - `name`
 - `type`
@@ -87,55 +89,55 @@ nodes:
 - `headers`
 - `extra`
 
-说明：
+Notes:
 
-- `group` 是节点分组，CLI 的 `--group` 只作为缺省分组名。
-- `headers`、`extra` 是后续扩展 Reality、插件、UTLS、更多传输层参数的预留位。
-- `links.txt` 输入时，每行一个分享链接，支持 `vmess://`、`vless://`、`trojan://`、`ss://`。
-- 对于 V2Ray 服务端配置，当前会从 `inbounds` 中提取常见协议入站并生成节点；当配置文件本身没有外部地址时，可用 `--server` 补齐。
+- `group` is the node group. The CLI flag `--group` is only used as a fallback default group.
+- `headers` and `extra` are reserved extension points for future Reality, plugin, UTLS, and transport-specific fields.
+- `links.txt` accepts one share link per line and currently supports `vmess://`, `vless://`, `trojan://`, and `ss://`.
+- For V2Ray server configs, `nodeforge` extracts supported inbounds and converts them into nodes. If the config does not contain an externally reachable host, use `--server` to provide one.
 
-示例文件见：
+Examples:
 
 - [examples/nodes.yaml](/Users/plack/code/nodeforge/examples/nodes.yaml)
 - [examples/nodes.json](/Users/plack/code/nodeforge/examples/nodes.json)
 - [examples/links.txt](/Users/plack/code/nodeforge/examples/links.txt)
 
-## 输出设计
+## Output Design
 
 ### Clash / Mihomo
 
-- 生成 `proxies`
-- 生成至少一个手动 `select` 组
-- 生成最小 `rules`
-- 默认包含 `mixed-port: 7890`
+- Generates `proxies`
+- Generates at least one manual `select` group
+- Generates a minimal `rules` section
+- Includes a minimal runnable config with `mixed-port: 7890`
 
 ### sing-box
 
-- 生成 `outbounds`
-- 生成 `selector`
-- 生成本地 `mixed` inbound，默认监听 `127.0.0.1:2080`
-- 生成最小 `route.final`
+- Generates `outbounds`
+- Generates a `selector`
+- Generates a local `mixed` inbound listening on `127.0.0.1:2080`
+- Generates a minimal `route.final`
 
 ### links.txt
 
-- 输出标准化后的分享链接列表
+- Outputs normalized share links, one per line
 
-### v2rayN subscription
+### v2rayN Subscription
 
-- 先生成多行标准化分享链接
-- 再整体做 Base64 编码
-- 适合后续自己托管为订阅文件
+- Builds a normalized multi-line share-link list
+- Base64-encodes the whole payload
+- Produces subscription content suitable for self-hosted `v2rayN` subscriptions
 
-## 使用方式
-
-构建：
+## Build
 
 ```bash
 go mod tidy
 go build -o ./bin/convert ./cmd/convert
 ```
 
-直接运行：
+## Usage
+
+Run from source:
 
 ```bash
 go run ./cmd/convert -i ./examples/nodes.yaml -f clash -o ./out/clash.yaml
@@ -146,7 +148,7 @@ go run ./cmd/convert -i ./examples/nodes.yaml -f all -o ./out --pretty
 go run ./cmd/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --server demo.example.com
 ```
 
-如果已经构建二进制：
+Run the built binary:
 
 ```bash
 ./bin/convert -i ./examples/nodes.yaml -f clash -o ./out/clash.yaml
@@ -157,43 +159,52 @@ go run ./cmd/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --s
 ./bin/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --server demo.example.com
 ```
 
-## 参数说明
+## CLI Flags
 
-- `-i`, `--input`：输入文件路径或目录路径
-- `-f`, `--format`：输出格式，支持 `clash`、`singbox`、`links`、`v2rayn`、`all`
-- `-o`, `--output`：输出文件或输出目录
-- `--pretty`：格式化 JSON 输出
-- `--group`：节点缺省分组名
-- `--server`：当输入是服务端配置且没有外部地址时，补齐默认服务器地址
+- `-i`, `--input`: input file path or directory path
+- `-f`, `--format`: output format, one of `clash`, `singbox`, `links`, `v2rayn`, `all`
+- `-o`, `--output`: output file path or output directory
+- `--pretty`: pretty-print JSON output
+- `--group`: fallback default group name
+- `--server`: fallback external server address when server-side configs do not contain one
 
-## 校验规则
+## Validation Rules
 
-- `server` 不能为空
-- `port` 必须在 `1-65535`
-- `vmess` / `vless` 需要 `uuid`
-- `trojan` 需要 `password`
-- `ss` 需要 `cipher` 与 `password`
-- `network=ws` 时需要 `path`
-- `network=grpc` 时需要 `service_name`
+- `server` must not be empty
+- `port` must be within `1-65535`
+- `vmess` / `vless` require `uuid`
+- `trojan` requires `password`
+- `ss` requires both `cipher` and `password`
+- `network=ws` requires `path`
+- `network=grpc` requires `service_name`
 
-遇到非法节点时：
+Invalid nodes do not crash the whole run:
 
-- 输出 warning
-- 跳过非法节点
-- 最终输出成功/失败统计
+- warnings are printed
+- invalid nodes are skipped
+- a final success/failure summary is shown
 
-## 扩展建议
+## Development Notes
 
-- 在 [internal/model/node.go](/Users/plack/code/nodeforge/internal/model/node.go) 中为新协议补充显式字段，而不是把所有差异都塞进 `extra`
-- 在 [internal/sharelink/sharelink.go](/Users/plack/code/nodeforge/internal/sharelink/sharelink.go) 中补充新的分享链接编解码逻辑
-- 在 [internal/renderer/renderer.go](/Users/plack/code/nodeforge/internal/renderer/renderer.go) 中新增更多输出格式，如 `surge`、`loon`、`xray`
-- 在 [internal/validate/node.go](/Users/plack/code/nodeforge/internal/validate/node.go) 中增加协议级校验规则
-- 在 [internal/parser/v2ray.go](/Users/plack/code/nodeforge/internal/parser/v2ray.go) 中继续扩展更多服务端配置字段映射
+The generated config outputs were validated with:
 
-## 当前已知边界
+```bash
+sing-box check -c ./out/singbox.json
+mihomo -t -d ./out/mihomo-home -f ./out/clash.yaml
+```
 
-- 目前只覆盖常见基础协议和基础字段映射
-- `Reality`、高级 `UTLS`、`multiplex`、`plugin`、`transport` 细节仍以预留扩展位为主
-- 还没有支持 `hysteria2`、`tuic`、`wireguard`、`ssh` 等更多协议
-- `sing-box` 与 `Clash` 的高级特性暂未完全对齐，只实现第一版最小可用配置
-- 从 V2Ray 服务端配置反推订阅时，如果原配置没有公网域名或 IP，需要通过 `--server` 明确指定
+## Extension Points
+
+- Add protocol-specific explicit fields in [internal/model/node.go](/Users/plack/code/nodeforge/internal/model/node.go) instead of overloading `extra`
+- Add new share-link encoders/decoders in [internal/sharelink/sharelink.go](/Users/plack/code/nodeforge/internal/sharelink/sharelink.go)
+- Add new output formats in [internal/renderer/renderer.go](/Users/plack/code/nodeforge/internal/renderer/renderer.go), such as `surge`, `loon`, or `xray`
+- Add stronger protocol-level validation in [internal/validate/node.go](/Users/plack/code/nodeforge/internal/validate/node.go)
+- Extend V2Ray server-side config extraction in [internal/parser/v2ray.go](/Users/plack/code/nodeforge/internal/parser/v2ray.go)
+
+## Current Boundaries
+
+- The current implementation focuses on common protocols and a minimum viable field mapping
+- Advanced Reality, UTLS, multiplex, plugin, and transport details are still reserved as extension points
+- Protocols such as `hysteria2`, `tuic`, `wireguard`, and `ssh` are not implemented yet
+- sing-box and Clash advanced features are not fully aligned; only a minimal practical first version is generated
+- When deriving subscriptions from V2Ray server configs, you must provide `--server` if the original config does not expose a public host or IP
