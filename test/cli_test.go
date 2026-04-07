@@ -122,3 +122,94 @@ func TestConvertDirectoryToV2RayNSubscription(t *testing.T) {
 		t.Fatalf("unexpected client ids: %#v", ids)
 	}
 }
+
+func TestConvertDirectoryUsesFilenameAsServer(t *testing.T) {
+	t.Parallel()
+
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "subscription.txt")
+	config := `{
+  "inbounds": [{
+    "port": 2333,
+    "protocol": "vmess",
+    "settings": {
+      "clients": [{"id": "1xxx", "alterId": 64}]
+    }
+  }]
+}`
+	filePath := filepath.Join(inputDir, "edge.example.com.json")
+	if err := os.WriteFile(filePath, []byte(config), 0o644); err != nil {
+		t.Fatalf("write config file: %v", err)
+	}
+
+	cmd := exec.Command("go", "run", "./cmd/convert", "-i", inputDir, "-f", "v2rayn", "-o", outputFile, "--server-from-filename")
+	cmd.Dir = root
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go run failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "summary: total=1 valid=1 failed=0") {
+		t.Fatalf("unexpected summary output: %s", output)
+	}
+
+	subscriptionBytes, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("read subscription file: %v", err)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(subscriptionBytes)))
+	if err != nil {
+		t.Fatalf("decode subscription: %v", err)
+	}
+	node, err := sharelink.Parse(strings.TrimSpace(string(decoded)))
+	if err != nil {
+		t.Fatalf("parse share link: %v", err)
+	}
+	if node.Server != "edge.example.com" {
+		t.Fatalf("expected server from filename, got %s", node.Server)
+	}
+}
+
+func TestServerFromFilenameConflictsWithServer(t *testing.T) {
+	t.Parallel()
+
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+
+	outputFile := filepath.Join(t.TempDir(), "subscription.txt")
+	cmd := exec.Command("go", "run", "./cmd/convert", "-i", "./test/data", "-f", "v2rayn", "-o", outputFile, "--server", "demo.example.com", "--server-from-filename")
+	cmd.Dir = root
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected conflict error, got success: %s", output)
+	}
+	if !strings.Contains(string(output), "--server and --server-from-filename cannot be used together") {
+		t.Fatalf("unexpected error output: %s", output)
+	}
+}
+
+func TestServerFromFilenameRequiresDirectoryInput(t *testing.T) {
+	t.Parallel()
+
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+
+	outputFile := filepath.Join(t.TempDir(), "subscription.txt")
+	cmd := exec.Command("go", "run", "./cmd/convert", "-i", "./test/data/1_config.json", "-f", "v2rayn", "-o", outputFile, "--server-from-filename")
+	cmd.Dir = root
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected directory-only error, got success: %s", output)
+	}
+	if !strings.Contains(string(output), "--server-from-filename requires -i/--input to be a directory") {
+		t.Fatalf("unexpected error output: %s", output)
+	}
+}

@@ -94,7 +94,11 @@ Notes:
 - `group` is the node group. The CLI flag `--group` is only used as a fallback default group.
 - `headers` and `extra` are reserved extension points for future Reality, plugin, UTLS, and transport-specific fields.
 - `links.txt` accepts one share link per line and currently supports `vmess://`, `vless://`, `trojan://`, and `ss://`.
-- For V2Ray server configs, `nodeforge` extracts supported inbounds and converts them into nodes. If the config does not contain an externally reachable host, use `--server` to provide one.
+- For V2Ray server configs, `nodeforge` extracts supported inbounds and converts them into nodes.
+- If a V2Ray server config does not contain an externally reachable host, you can:
+  - use `--server` to provide one fixed fallback host for all matching files
+  - use `--server-from-filename` when `-i` points to a directory, so each file name becomes that file's fallback host
+- `--server` and `--server-from-filename` are mutually exclusive.
 
 Examples:
 
@@ -146,6 +150,7 @@ go run ./cmd/convert -i ./examples/links.txt -f links -o ./out/links.txt
 go run ./cmd/convert -i ./examples/nodes.yaml -f v2rayn -o ./out/subscription.txt
 go run ./cmd/convert -i ./examples/nodes.yaml -f all -o ./out --pretty
 go run ./cmd/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --server demo.example.com
+go run ./cmd/convert -i ./configs -f v2rayn -o ./out/subscription.txt --server-from-filename
 ```
 
 Run the built binary:
@@ -157,6 +162,7 @@ Run the built binary:
 ./bin/convert -i ./examples/nodes.yaml -f v2rayn -o ./out/subscription.txt
 ./bin/convert -i ./examples/nodes.yaml -f all -o ./out --pretty
 ./bin/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --server demo.example.com
+./bin/convert -i ./configs -f v2rayn -o ./out/subscription.txt --server-from-filename
 ```
 
 ## CLI Flags
@@ -167,6 +173,15 @@ Run the built binary:
 - `--pretty`: pretty-print JSON output
 - `--group`: fallback default group name
 - `--server`: fallback external server address when server-side configs do not contain one
+- `--server-from-filename`: when `--input` is a directory, derive the fallback server host from each config file name
+
+Rules for server fallback options:
+
+- `--server-from-filename` only works when `-i/--input` points to a directory
+- `--server-from-filename` and `--server` cannot be used together
+- File names are mapped by stripping the extension only
+  - `edge.example.com.json` becomes `edge.example.com`
+  - `hk-gateway.internal.yaml` becomes `hk-gateway.internal`
 
 ## Validation Rules
 
@@ -207,4 +222,4 @@ mihomo -t -d ./out/mihomo-home -f ./out/clash.yaml
 - Advanced Reality, UTLS, multiplex, plugin, and transport details are still reserved as extension points
 - Protocols such as `hysteria2`, `tuic`, `wireguard`, and `ssh` are not implemented yet
 - sing-box and Clash advanced features are not fully aligned; only a minimal practical first version is generated
-- When deriving subscriptions from V2Ray server configs, you must provide `--server` if the original config does not expose a public host or IP
+- When deriving subscriptions from V2Ray server configs, you must provide either `--server` or directory-based `--server-from-filename` if the original config does not expose a public host or IP

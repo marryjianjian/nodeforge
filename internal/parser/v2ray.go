@@ -89,7 +89,11 @@ func parseV2RayServiceConfig(content []byte, useYAML bool, sourcePath string, op
 	}
 
 	baseName := strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
-	defaultServer := firstNonEmpty(opts.DefaultServer, "127.0.0.1")
+	defaultServer := opts.DefaultServer
+	if opts.ServerFromFilename {
+		defaultServer = serverFromFilename(sourcePath)
+	}
+	defaultServer = firstNonEmpty(defaultServer, "127.0.0.1")
 	nodes := make([]model.Node, 0)
 	var parseErrors []error
 
@@ -248,4 +252,9 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func serverFromFilename(sourcePath string) string {
+	baseName := strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
+	return strings.TrimSpace(baseName)
 }

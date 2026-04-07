@@ -22,15 +22,16 @@ func main() {
 
 func run() error {
 	var (
-		inputShort  string
-		inputLong   string
-		formatShort string
-		formatLong  string
-		outputShort string
-		outputLong  string
-		pretty      bool
-		group       string
-		server      string
+		inputShort         string
+		inputLong          string
+		formatShort        string
+		formatLong         string
+		outputShort        string
+		outputLong         string
+		pretty             bool
+		group              string
+		server             string
+		serverFromFilename bool
 	)
 
 	flag.StringVar(&inputShort, "i", "", "input file or directory path")
@@ -42,6 +43,7 @@ func run() error {
 	flag.BoolVar(&pretty, "pretty", false, "pretty print json output")
 	flag.StringVar(&group, "group", "", "default group name")
 	flag.StringVar(&server, "server", "", "default server address used when server-side configs do not include an external host")
+	flag.BoolVar(&serverFromFilename, "server-from-filename", false, "when input is a directory, derive the default server domain from each config filename")
 	flag.Parse()
 
 	input := firstNonEmpty(inputLong, inputShort)
@@ -52,6 +54,17 @@ func run() error {
 	if output == "" {
 		return errors.New("missing required -o/--output")
 	}
+	if server != "" && serverFromFilename {
+		return errors.New("--server and --server-from-filename cannot be used together")
+	}
+
+	inputInfo, err := os.Stat(input)
+	if err != nil {
+		return fmt.Errorf("stat input path: %w", err)
+	}
+	if serverFromFilename && !inputInfo.IsDir() {
+		return errors.New("--server-from-filename requires -i/--input to be a directory")
+	}
 
 	format, err := renderer.ParseFormat(firstNonEmpty(formatLong, formatShort))
 	if err != nil {
@@ -59,7 +72,8 @@ func run() error {
 	}
 
 	parseResult, err := parser.ParsePath(input, parser.Options{
-		DefaultServer: server,
+		DefaultServer:      server,
+		ServerFromFilename: serverFromFilename,
 	})
 	if err != nil {
 		return err

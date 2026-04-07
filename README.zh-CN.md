@@ -94,7 +94,11 @@ nodes:
 - `group` 是节点分组，CLI 的 `--group` 只作为缺省分组名。
 - `headers`、`extra` 是后续扩展 Reality、插件、UTLS、更多传输层参数的预留位。
 - `links.txt` 输入时，每行一个分享链接，支持 `vmess://`、`vless://`、`trojan://`、`ss://`。
-- 对于 V2Ray 服务端配置，当前会从 `inbounds` 中提取常见协议入站并生成节点；当配置文件本身没有外部地址时，可用 `--server` 补齐。
+- 对于 V2Ray 服务端配置，当前会从 `inbounds` 中提取常见协议入站并生成节点。
+- 如果配置文件本身没有外部可访问地址，可以：
+  - 使用 `--server`，为所有匹配文件提供同一个兜底主机名
+  - 当 `-i` 指向目录时使用 `--server-from-filename`，让每个文件名成为该文件的兜底主机名
+- `--server` 与 `--server-from-filename` 互斥，不能同时使用。
 
 示例文件见：
 
@@ -122,7 +126,7 @@ nodes:
 
 - 输出标准化后的分享链接列表
 
-### v2rayN subscription
+### v2rayN 订阅
 
 - 先生成多行标准化分享链接
 - 再整体做 Base64 编码
@@ -146,6 +150,7 @@ go run ./cmd/convert -i ./examples/links.txt -f links -o ./out/links.txt
 go run ./cmd/convert -i ./examples/nodes.yaml -f v2rayn -o ./out/subscription.txt
 go run ./cmd/convert -i ./examples/nodes.yaml -f all -o ./out --pretty
 go run ./cmd/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --server demo.example.com
+go run ./cmd/convert -i ./configs -f v2rayn -o ./out/subscription.txt --server-from-filename
 ```
 
 如果已经构建二进制：
@@ -157,6 +162,7 @@ go run ./cmd/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --s
 ./bin/convert -i ./examples/nodes.yaml -f v2rayn -o ./out/subscription.txt
 ./bin/convert -i ./examples/nodes.yaml -f all -o ./out --pretty
 ./bin/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --server demo.example.com
+./bin/convert -i ./configs -f v2rayn -o ./out/subscription.txt --server-from-filename
 ```
 
 ## 参数说明
@@ -167,6 +173,15 @@ go run ./cmd/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --s
 - `--pretty`：格式化 JSON 输出
 - `--group`：节点缺省分组名
 - `--server`：当输入是服务端配置且没有外部地址时，补齐默认服务器地址
+- `--server-from-filename`：当 `--input` 是目录时，从每个配置文件的文件名推断兜底服务器主机名
+
+`server` 兜底选项的规则：
+
+- `--server-from-filename` 只能和目录输入一起使用
+- `--server-from-filename` 和 `--server` 不能同时使用
+- 文件名映射规则只会去掉扩展名
+  - `edge.example.com.json` 会变成 `edge.example.com`
+  - `hk-gateway.internal.yaml` 会变成 `hk-gateway.internal`
 
 ## 校验规则
 
@@ -198,4 +213,4 @@ go run ./cmd/convert -i ./test/data -f v2rayn -o ./out/test-subscription.txt --s
 - `Reality`、高级 `UTLS`、`multiplex`、`plugin`、`transport` 细节仍以预留扩展位为主
 - 还没有支持 `hysteria2`、`tuic`、`wireguard`、`ssh` 等更多协议
 - `sing-box` 与 `Clash` 的高级特性暂未完全对齐，只实现第一版最小可用配置
-- 从 V2Ray 服务端配置反推订阅时，如果原配置没有公网域名或 IP，需要通过 `--server` 明确指定
+- 从 V2Ray 服务端配置反推订阅时，如果原配置没有公网域名或 IP，需要通过 `--server` 或目录模式下的 `--server-from-filename` 明确指定
