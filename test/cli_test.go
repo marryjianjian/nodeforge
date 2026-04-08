@@ -77,8 +77,34 @@ func TestConvertDirectoryToV2RayNSubscription(t *testing.T) {
 		t.Fatalf("resolve repo root: %v", err)
 	}
 
+	inputDir := t.TempDir()
 	outputFile := filepath.Join(t.TempDir(), "subscription.txt")
-	cmd := exec.Command("go", "run", "./cmd/convert", "-i", "./test/data", "-f", "v2rayn", "-o", outputFile, "--server", "demo.example.com")
+	configOne := `{
+  "inbounds": [{
+    "port": 2333,
+    "protocol": "vmess",
+    "settings": {
+      "clients": [{"id": "1xxx", "alterId": 64}]
+    }
+  }]
+}`
+	configTwo := `{
+  "inbounds": [{
+    "port": 2333,
+    "protocol": "vmess",
+    "settings": {
+      "clients": [{"id": "2xxx", "alterId": 64}]
+    }
+  }]
+}`
+	if err := os.WriteFile(filepath.Join(inputDir, "1_config.json"), []byte(configOne), 0o644); err != nil {
+		t.Fatalf("write first config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(inputDir, "2_config.json"), []byte(configTwo), 0o644); err != nil {
+		t.Fatalf("write second config: %v", err)
+	}
+
+	cmd := exec.Command("go", "run", "./cmd/convert", "-i", inputDir, "-f", "v2rayn", "-o", outputFile, "--server", "demo.example.com")
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -120,6 +146,91 @@ func TestConvertDirectoryToV2RayNSubscription(t *testing.T) {
 	sort.Strings(ids)
 	if ids[0] != "1xxx" || ids[1] != "2xxx" {
 		t.Fatalf("unexpected client ids: %#v", ids)
+	}
+}
+
+func TestConvertDomainNamedVMessWSConfigDefaultsToTLSAndHost(t *testing.T) {
+	t.Parallel()
+
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+
+	outputFile := filepath.Join(t.TempDir(), "links.txt")
+	cmd := exec.Command("go", "run", "./cmd/convert", "-i", "./test/data/3.test-config.example.com.json", "-f", "links", "-o", outputFile)
+	cmd.Dir = root
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go run failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "summary: total=1 valid=1 failed=0") {
+		t.Fatalf("unexpected summary output: %s", output)
+	}
+
+	linkBytes, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("read links file: %v", err)
+	}
+	node, err := sharelink.Parse(strings.TrimSpace(string(linkBytes)))
+	if err != nil {
+		t.Fatalf("parse generated link: %v", err)
+	}
+	if node.Server != "3.test-config.example.com" {
+		t.Fatalf("expected server from filename, got %s", node.Server)
+	}
+	if node.Host != "3.test-config.example.com" {
+		t.Fatalf("expected ws host from filename, got %s", node.Host)
+	}
+	if node.Network != "ws" {
+		t.Fatalf("expected ws network, got %s", node.Network)
+	}
+	if !node.TLS {
+		t.Fatalf("expected implicit tls to be enabled")
+	}
+	if node.Port != 443 {
+		t.Fatalf("expected implicit tls port 443, got %d", node.Port)
+	}
+	if node.Path != "/o3ray" {
+		t.Fatalf("expected ws path /o3ray, got %s", node.Path)
+	}
+}
+
+func TestConvertDomainNamedConfigUsesFilenameAsServer(t *testing.T) {
+	t.Parallel()
+
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+
+	outputFile := filepath.Join(t.TempDir(), "links.txt")
+	cmd := exec.Command("go", "run", "./cmd/convert", "-i", "./test/data/4.test-config.example.com.json", "-f", "links", "-o", outputFile)
+	cmd.Dir = root
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go run failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "summary: total=1 valid=1 failed=0") {
+		t.Fatalf("unexpected summary output: %s", output)
+	}
+
+	linkBytes, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("read links file: %v", err)
+	}
+	node, err := sharelink.Parse(strings.TrimSpace(string(linkBytes)))
+	if err != nil {
+		t.Fatalf("parse generated link: %v", err)
+	}
+	if node.Server != "4.test-config.example.com" {
+		t.Fatalf("expected server from filename, got %s", node.Server)
+	}
+	if node.Port != 2333 {
+		t.Fatalf("expected original port 2333, got %d", node.Port)
+	}
+	if node.Network != "tcp" {
+		t.Fatalf("expected default tcp network, got %s", node.Network)
 	}
 }
 

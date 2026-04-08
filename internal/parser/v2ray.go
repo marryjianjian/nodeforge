@@ -89,16 +89,19 @@ func parseV2RayServiceConfig(content []byte, useYAML bool, sourcePath string, op
 	}
 
 	baseName := strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
+	filenameServer := serverFromFilename(sourcePath)
 	defaultServer := opts.DefaultServer
 	if opts.ServerFromFilename {
-		defaultServer = serverFromFilename(sourcePath)
+		defaultServer = filenameServer
+	} else if defaultServer == "" && looksLikeDomain(filenameServer) {
+		defaultServer = filenameServer
 	}
 	defaultServer = firstNonEmpty(defaultServer, "127.0.0.1")
 	nodes := make([]model.Node, 0)
 	var parseErrors []error
 
 	for inboundIndex, inbound := range cfg.Inbounds {
-		inboundNodes, skipped, err := nodesFromInbound(inbound, inboundIndex, baseName, defaultServer)
+		inboundNodes, skipped, err := nodesFromInbound(inbound, inboundIndex, baseName, defaultServer, filenameServer, opts)
 		if err != nil {
 			return Result{}, err
 		}
@@ -111,28 +114,28 @@ func parseV2RayServiceConfig(content []byte, useYAML bool, sourcePath string, op
 	return Result{Nodes: nodes, Errors: parseErrors}, nil
 }
 
-func nodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, defaultServer string) ([]model.Node, []error, error) {
+func nodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, defaultServer, filenameServer string, opts Options) ([]model.Node, []error, error) {
 	protocol := model.NormalizeProtocol(inbound.Protocol)
 	switch protocol {
 	case model.ProtocolVMess, model.ProtocolVLESS:
-		return vmessLikeNodesFromInbound(inbound, inboundIndex, baseName, defaultServer, protocol)
+		return vmessLikeNodesFromInbound(inbound, inboundIndex, baseName, defaultServer, filenameServer, protocol, opts)
 	case model.ProtocolTrojan:
-		return trojanNodesFromInbound(inbound, inboundIndex, baseName, defaultServer)
+		return trojanNodesFromInbound(inbound, inboundIndex, baseName, defaultServer, filenameServer, opts)
 	case model.ProtocolSS:
-		return shadowsocksNodesFromInbound(inbound, inboundIndex, baseName, defaultServer)
+		return shadowsocksNodesFromInbound(inbound, inboundIndex, baseName, defaultServer, filenameServer, opts)
 	default:
 		return nil, []error{fmt.Errorf("skip unsupported inbound protocol %q", inbound.Protocol)}, nil
 	}
 }
 
-func vmessLikeNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, defaultServer string, protocol model.Protocol) ([]model.Node, []error, error) {
+func vmessLikeNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, defaultServer, filenameServer string, protocol model.Protocol, opts Options) ([]model.Node, []error, error) {
 	if len(inbound.Settings.Clients) == 0 {
 		return nil, nil, fmt.Errorf("inbound %d has no clients", inboundIndex+1)
 	}
 
 	nodes := make([]model.Node, 0, len(inbound.Settings.Clients))
 	for clientIndex, client := range inbound.Settings.Clients {
-		node := buildBaseInboundNode(inbound, inboundIndex, baseName, defaultServer)
+		node := buildBaseInboundNode(inbound, inboundIndex, baseName, defaultServer, filenameServer, opts)
 		node.Type = protocol
 		node.UUID = client.ID
 		node.Flow = client.Flow
@@ -148,14 +151,14 @@ func vmessLikeNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName,
 	return nodes, nil, nil
 }
 
-func trojanNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, defaultServer string) ([]model.Node, []error, error) {
+func trojanNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, defaultServer, filenameServer string, opts Options) ([]model.Node, []error, error) {
 	if len(inbound.Settings.Clients) == 0 {
 		return nil, nil, fmt.Errorf("inbound %d has no clients", inboundIndex+1)
 	}
 
 	nodes := make([]model.Node, 0, len(inbound.Settings.Clients))
 	for clientIndex, client := range inbound.Settings.Clients {
-		node := buildBaseInboundNode(inbound, inboundIndex, baseName, defaultServer)
+		node := buildBaseInboundNode(inbound, inboundIndex, baseName, defaultServer, filenameServer, opts)
 		node.Type = model.ProtocolTrojan
 		node.Password = firstNonEmpty(client.Password, client.ID)
 		node.Name = buildClientName(baseName, inbound, model.ProtocolTrojan, clientIndex, client.Email)
@@ -164,8 +167,8 @@ func trojanNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, de
 	return nodes, nil, nil
 }
 
-func shadowsocksNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, defaultServer string) ([]model.Node, []error, error) {
-	node := buildBaseInboundNode(inbound, inboundIndex, baseName, defaultServer)
+func shadowsocksNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseName, defaultServer, filenameServer string, opts Options) ([]model.Node, []error, error) {
+	node := buildBaseInboundNode(inbound, inboundIndex, baseName, defaultServer, filenameServer, opts)
 	node.Type = model.ProtocolSS
 	node.Name = buildClientName(baseName, inbound, model.ProtocolSS, 0, "")
 	node.Cipher = inbound.Settings.Method
@@ -173,7 +176,7 @@ func shadowsocksNodesFromInbound(inbound v2rayInbound, inboundIndex int, baseNam
 	return []model.Node{node}, nil, nil
 }
 
-func buildBaseInboundNode(inbound v2rayInbound, inboundIndex int, baseName, defaultServer string) model.Node {
+func buildBaseInboundNode(inbound v2rayInbound, inboundIndex int, baseName, defaultServer, filenameServer string, opts Options) model.Node {
 	stream := inbound.StreamSettings
 	node := model.Node{
 		Server:      resolveInboundServer(inbound.Listen, defaultServer),
@@ -200,6 +203,8 @@ func buildBaseInboundNode(inbound v2rayInbound, inboundIndex int, baseName, defa
 	if node.Name == "" {
 		node.Name = fmt.Sprintf("%s-%d", baseName, inboundIndex+1)
 	}
+	applyImplicitVMessWSDefaults(&node, inbound, filenameServer, opts)
+	applyImplicitTLSLocalListenPort(&node, inbound)
 	return node
 }
 
@@ -257,4 +262,96 @@ func firstNonEmpty(values ...string) string {
 func serverFromFilename(sourcePath string) string {
 	baseName := strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
 	return strings.TrimSpace(baseName)
+}
+
+func applyImplicitVMessWSDefaults(node *model.Node, inbound v2rayInbound, filenameServer string, opts Options) {
+	if model.NormalizeProtocol(inbound.Protocol) != model.ProtocolVMess {
+		return
+	}
+	if node.Network != "ws" {
+		return
+	}
+
+	if strings.TrimSpace(inbound.StreamSettings.Security) == "" {
+		node.TLS = true
+	}
+
+	if !looksLikeDomain(filenameServer) {
+		return
+	}
+
+	// 对 ws 配置，缺少 Host 头时默认回填域名文件名。
+	if node.Host == "" {
+		node.Host = filenameServer
+		node.Headers["Host"] = filenameServer
+	}
+}
+
+func applyImplicitTLSLocalListenPort(node *model.Node, inbound v2rayInbound) {
+	if !node.TLS {
+		return
+	}
+	if !isLoopback127Listen(inbound.Listen) {
+		return
+	}
+
+	// 对本地回环监听且最终走 TLS 的配置，导出订阅时默认按标准 HTTPS 端口 443 处理。
+	node.Port = 443
+}
+
+func isLocalOrEmptyListen(listen string) bool {
+	listen = strings.TrimSpace(listen)
+	if listen == "" {
+		return true
+	}
+	if host, _, err := net.SplitHostPort(listen); err == nil {
+		listen = host
+	}
+	switch listen {
+	case "", "0.0.0.0", "::", "::0", "127.0.0.1", "::1":
+		return true
+	default:
+		return false
+	}
+}
+
+func isLoopback127Listen(listen string) bool {
+	listen = strings.TrimSpace(listen)
+	if listen == "" {
+		return false
+	}
+	if host, _, err := net.SplitHostPort(listen); err == nil {
+		listen = host
+	}
+	return listen == "127.0.0.1"
+}
+
+func looksLikeDomain(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || len(value) > 253 || !strings.Contains(value, ".") {
+		return false
+	}
+	labels := strings.Split(value, ".")
+	hasLetter := false
+	for _, label := range labels {
+		if label == "" || len(label) > 63 {
+			return false
+		}
+		for i, r := range label {
+			switch {
+			case r >= 'a' && r <= 'z':
+				hasLetter = true
+			case r >= 'A' && r <= 'Z':
+				hasLetter = true
+			case r >= '0' && r <= '9':
+			case r == '-':
+				if i == 0 || i == len(label)-1 {
+					return false
+				}
+			default:
+				return false
+			}
+		}
+	}
+	return hasLetter
 }

@@ -99,6 +99,10 @@ Notes:
   - use `--server` to provide one fixed fallback host for all matching files
   - use `--server-from-filename` when `-i` points to a directory, so each file name becomes that file's fallback host
 - `--server` and `--server-from-filename` are mutually exclusive.
+- If the source config file name itself looks like a domain, `nodeforge` automatically uses that domain as the fallback `server` value when no explicit server override is provided.
+- For `vmess + ws` V2Ray server configs, if TLS and WS `Host` are omitted, `nodeforge` treats them as `vmess + ws + tls` by default.
+- When the config file name itself looks like a domain, `nodeforge` uses that domain as the fallback `server` and WS `Host` for this implicit `vmess + ws + tls` case.
+- If the final derived node uses TLS and the original inbound `listen` is `127.0.0.1`, `nodeforge` exports the port as `443` by default.
 
 Examples:
 

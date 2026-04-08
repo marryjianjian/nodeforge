@@ -99,6 +99,10 @@ nodes:
   - 使用 `--server`，为所有匹配文件提供同一个兜底主机名
   - 当 `-i` 指向目录时使用 `--server-from-filename`，让每个文件名成为该文件的兜底主机名
 - `--server` 与 `--server-from-filename` 互斥，不能同时使用。
+- 如果源配置文件的文件名本身看起来就是域名，在没有显式 `server` 覆盖时，`nodeforge` 会自动把这个域名作为兜底 `server` 值。
+- 对于 `vmess + ws` 的 V2Ray 服务端配置，如果 TLS 和 WS `Host` 没有显式给出，`nodeforge` 会默认按 `vmess + ws + tls` 处理。
+- 当配置文件名本身看起来就是域名时，在这种隐式 `vmess + ws + tls` 场景下，`nodeforge` 会默认把该域名回填到 `server` 和 WS `Host`。
+- 如果最终推导出的节点启用了 TLS，且原始入站 `listen` 是 `127.0.0.1`，`nodeforge` 会默认把导出端口处理为 `443`。
 
 示例文件见：
 
