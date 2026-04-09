@@ -116,8 +116,11 @@ Examples:
 
 - Generates `proxies`
 - Generates at least one manual `select` group
-- Generates a minimal `rules` section
+- Generates bypass rules for local/private IP ranges
+- Generates a `GEOIP,CN,DIRECT` rule for mainland China IP ranges
+- Falls back to the main proxy group with a final `MATCH` rule
 - Includes a minimal runnable config with `mixed-port: 7890`
+- The `GEOIP,CN` rule requires Mihomo GeoIP data to be available during validation/runtime
 
 ### sing-box
 

@@ -116,8 +116,11 @@ nodes:
 
 - 生成 `proxies`
 - 生成至少一个手动 `select` 组
-- 生成最小 `rules`
+- 生成本地/私有 IP 段直连规则
+- 生成中国大陆 IP 的 `GEOIP,CN,DIRECT` 规则
+- 最后使用 `MATCH` 回落到主代理组
 - 默认包含 `mixed-port: 7890`
+- `GEOIP,CN` 规则在校验或运行时依赖 Mihomo 的 GeoIP 数据
 
 ### sing-box
 

@@ -64,9 +64,7 @@ func RenderClash(nodes []model.Node, groupName string) ([]byte, error) {
 		"log-level":    "info",
 		"proxies":      buildClashProxies(nodes),
 		"proxy-groups": buildClashGroups(nodes, groupName),
-		"rules": []string{
-			fmt.Sprintf("MATCH,%s", groupName),
-		},
+		"rules":        buildClashRules(groupName),
 	}
 
 	data, err := yaml.Marshal(config)
@@ -141,6 +139,22 @@ func RenderV2RayNSubscription(nodes []model.Node) ([]byte, error) {
 	}
 	encoded := base64.StdEncoding.EncodeToString(linkBytes)
 	return []byte(encoded + "\n"), nil
+}
+
+func buildClashRules(groupName string) []string {
+	return []string{
+		"IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
+		"IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+		"IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
+		"IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
+		"IP-CIDR,169.254.0.0/16,DIRECT,no-resolve",
+		"IP-CIDR,100.64.0.0/10,DIRECT,no-resolve",
+		"IP-CIDR6,::1/128,DIRECT,no-resolve",
+		"IP-CIDR6,fc00::/7,DIRECT,no-resolve",
+		"IP-CIDR6,fe80::/10,DIRECT,no-resolve",
+		"GEOIP,CN,DIRECT,no-resolve",
+		fmt.Sprintf("MATCH,%s", groupName),
+	}
 }
 
 func buildClashProxies(nodes []model.Node) []map[string]any {
